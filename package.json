@@ -1,0 +1,35 @@
+{
+  "name": "gulp-watch-less2",
+  "version": "1.0.2",
+  "description": "Gulp plugin for watching .less files and their @imports by gulp-watch, based on Craga89/gulp-watch-less",
+  "license": "MIT",
+  "repository": "bammoo/gulp-watch-less2",
+  "author": {
+    "name": "John Xiao",
+    "email": "xiao-jianfeng@qq.com",
+    "url": "https://github.com/bammoo"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "gulpplugin",
+    "gulp",
+    "less",
+    "watch",
+    "imports",
+    "gulp-watch-less",
+    "gulp-watch",
+    "gulp-less"
+  ],
+  "dependencies": {
+    "gulp-util": "^3.0.7",
+    "gulp-watch": "^4.3.5",
+    "less": "^2.5.3",
+    "lodash.defaults": "^3.1.2",
+    "through2": "^2.0.0"
+  }
+}
