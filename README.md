@@ -1,5 +1,5 @@
 # [gulp](http://gulpjs.com)-watch-less [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][depstat-image]][depstat-url]
-> Gulp plugin for watching .less files and their @imports by [gulp-watch][watch-url], based on [Craga89/gulp-watch-less][url-watch-less]
+> Gulp plugin for watching .less files and their @imports by [gulp-watch][watch-url], based on [Craga89/gulp-watch-less][url-watch-less] which is not work with gulp 3.9 and gulp4
 
 ## Install
 
@@ -16,14 +16,12 @@ var watchLess = require('gulp-watch-less2');
 var less = require('gulp-less');
 
 gulp.task('default', function () {
-	return gulp.src('less/file.less')
-		.pipe(watchLess('less/file.less'))
-		.pipe(less())
-		.pipe(gulp.dest('dist'));
+  return gulp.src('less/*.less')
+    .pipe(watchLess('less/*.less'))
+    .pipe(less())
+    .pipe(gulp.dest('dist'));
 });
 ```
-
-> __Protip:__ until gulpjs 4.0 is released, you can use [gulp-plumber][plumber-url] to prevent stops on errors.
 
 
 ## API
@@ -78,3 +76,4 @@ MIT &copy; [Craig Michael Thompson][profile-url]
 
 [depstat-url]: https://david-dm.org/bammoo/gulp-watch-less2
 [depstat-image]: http://img.shields.io/david/bammoo/gulp-watch-less2.svg?style=flat
+
