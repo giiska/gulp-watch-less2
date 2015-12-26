@@ -52,7 +52,7 @@ Default: `{}`
 
 ## License
 
-MIT &copy; [John Xiao][profile-url2]
+MIT &copy; [John Xiao][profile-url2]  
 MIT &copy; [Craig Michael Thompson][profile-url]
 
 
