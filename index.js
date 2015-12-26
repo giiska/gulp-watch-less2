@@ -107,8 +107,7 @@ module.exports = function (glob, options, callback) {
 		// Passthrough the file
 		this.push(file);
 
-		// Make sure we only execute the logic on external events
-		// and not when our own internal changeEvent triggers it
+		// Make sure not watch again when `watchStream.push(f)`
 		if(file.event !== changeEvent) {
 			watchLessImports(file, options, function(importFile) {
 				// Re push changed less
@@ -116,6 +115,7 @@ module.exports = function (glob, options, callback) {
 	        if (err) {
 						return watchStream.emit('error', err);
 	        }
+	        f.event = changeEvent;
 					watchStream.push(f);
 					callback(f);
 				});
