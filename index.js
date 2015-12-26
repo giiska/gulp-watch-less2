@@ -4,6 +4,7 @@ var PLUGIN_NAME = 'gulp-watch-less2';
 
 var gulp = require('gulp'),
 	gutil = require('gulp-util'),
+	vinyl = require('vinyl-file'),
 	watch = require('gulp-watch'),
 	mergeDefaults = require('lodash.defaults'),
 	through = require('through2'),
@@ -46,7 +47,7 @@ var _streams = Object.create(null);
 var changeEvent = 'changed:by:import';
 
 // Import generator
-function watchLessImports(file, options, cb, done) {
+function watchLessImports(file, options, cb, pipeCb) {
 	var filePath = file.path;
 
 	// Generate an @import list via LESS...
@@ -63,7 +64,7 @@ function watchLessImports(file, options, cb, done) {
 
 			// Check to ensure the @import arrays are identical.
 			if(oldImports.length && oldImports.join() === imports.join()) {
-				done(); return; // Don't do anything further!
+				pipeCb(); return; // Don't do anything further!
 			}
 
 			// Clean up previous watch stream
@@ -82,7 +83,7 @@ function watchLessImports(file, options, cb, done) {
 			watchStream._imports = imports;
 		}
 
-		done();
+		pipeCb();
 	});
 }
 
@@ -100,7 +101,7 @@ module.exports = function (glob, options, callback) {
 	// Generate a basic `gulp-watch` stream
 	var watchStream = watch(glob, options, callback)
 
-	function watchImportStream(file, enc, cb) {
+	function importPipe(file, enc, cb) {
 		var filePath = file.path;
 
 		// Passthrough the file
@@ -110,7 +111,14 @@ module.exports = function (glob, options, callback) {
 		// and not when our own internal changeEvent triggers it
 		if(file.event !== changeEvent) {
 			watchLessImports(file, options, function(importFile) {
-				watchStream._gaze.emit('all', changeEvent, filePath);
+				// Re push changed less
+				vinyl.read(filePath, options, function(err, f) {
+	        if (err) {
+						return watchStream.emit('error', err);
+	        }
+					watchStream.push(f);
+					callback(f);
+				});
 			},
 			cb);
 		}
@@ -126,10 +134,7 @@ module.exports = function (glob, options, callback) {
 	// Pipe the watch stream into the imports watcher so whenever any of the
 	// files change, we re-generate our @import watcher so removals/additions
 	// are detected
-	watchStream.pipe(through.obj(watchImportStream));
+	watchStream.pipe(through.obj(importPipe));
 
-	// In order for the pipe to receive updates that the main less file changed
-	// we must pipe the stream to itself.
-	watchStream.pipe(watchStream);
 	return watchStream;
 };

@@ -1,7 +1,7 @@
 {
   "name": "gulp-watch-less2",
   "version": "1.0.2",
-  "description": "Gulp plugin for watching .less files and their @imports by gulp-watch, based on Craga89/gulp-watch-less",
+  "description": "Gulp plugin for watching .less files and their @imports by gulp-watch, based on Craga89/gulp-watch-less which is not work with gulp 3.9 and gulp4",
   "license": "MIT",
   "repository": "bammoo/gulp-watch-less2",
   "author": {
@@ -30,6 +30,12 @@
     "gulp-watch": "^4.3.5",
     "less": "^2.5.3",
     "lodash.defaults": "^3.1.2",
-    "through2": "^2.0.0"
+    "through2": "^2.0.0",
+    "vinyl-file": "^1.3.0"
+  },
+  "devDependencies": {
+    "del": "^2.2.0",
+    "gulp": "^3.9.0",
+    "gulp-less": "^3.0.5"
   }
 }
