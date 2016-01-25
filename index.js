@@ -15,7 +15,7 @@ function getLessFileImports(file, options, cb) {
 	var imports = [];
 
 	// Support (file, cb) signature
-	if(typeof options === 'function') {
+	if (typeof options === 'function') {
 		cb = options; options = null;
 	}
 
@@ -47,9 +47,13 @@ var _streams = Object.create(null);
 var changeEvent = 'changed:by:import';
 
 // Import generator
-function watchLessImports(file, options, cb, pipeCb) {
+function watchLessImports(file, options, cb) {
 	var filePath = file.path;
 
+	if (file.event === 'unlink') {
+		cleanupWatchStream(file);
+		return;
+	}
 	// Generate an @import list via LESS...
 	getLessFileImports(file, options.less, function(err, imports) {
 		var oldImports;
@@ -59,38 +63,44 @@ function watchLessImports(file, options, cb, pipeCb) {
 
 		// If a previous watch stream is active...
 		var watchStream = _streams[filePath];
-		if(watchStream) {
+		if (watchStream) {
 			oldImports = watchStream._imports;
 
 			// Check to ensure the @import arrays are identical.
-			if(oldImports.length && oldImports.join() === imports.join()) {
-				pipeCb(); return; // Don't do anything further!
+			if (oldImports.length && oldImports.join() === imports.join()) {
+				return; // Don't do anything further!
 			}
 
-			// Clean up previous watch stream
-			watchStream.end();
-			watchStream.unpipe();
-			watchStream.close();
-			delete _streams[filePath];
+			cleanupWatchStream(file);
 		}
 
 		// If we found some imports...
-		if(imports.length) {
+		if (imports.length) {
 			// Generate new watch stream
 			watchStream = _streams[filePath] = watch(imports, options, cb);
 
 			// Expose @import list on the stream
 			watchStream._imports = imports;
 		}
-
-		pipeCb();
 	});
+}
+
+function cleanupWatchStream(file) {
+	var watchStream = _streams[file.path];
+	
+	if (watchStream) {
+		watchStream.end();
+		watchStream.unpipe();
+		watchStream.close();
+		
+		delete _streams[file.path];
+	}
 }
 
 module.exports = function (glob, options, callback) {
 	// No-op callback if not given
-	if(!options) { options = {}; }
-	if(!callback) { callback = function() {}; }
+	if (!options) { options = {}; }
+	if (!callback) { callback = function() {}; }
 
 	// Merge defaults
 	options = mergeDefaults(options, {
@@ -99,42 +109,29 @@ module.exports = function (glob, options, callback) {
 	});
 
 	// Generate a basic `gulp-watch` stream
-	var watchStream = watch(glob, options, callback)
-
-	function importPipe(file, enc, cb) {
+	var watchStream = watch(glob, options, function(file) {
 		var filePath = file.path;
 
-		// Passthrough the file
-		this.push(file);
-
 		// Make sure not watch again when `watchStream.push(f)`
-		if(file.event !== changeEvent) {
+		if (file.event !== changeEvent) {
 			watchLessImports(file, options, function(importFile) {
 				// Re push changed less
 				vinyl.read(filePath, options, function(err, f) {
-	        if (err) {
+	        			if (err) {
 						return watchStream.emit('error', err);
-	        }
-	        f.event = changeEvent;
+	        			}
+	        			f.event = changeEvent;
 					watchStream.push(f);
 					callback(f);
 				});
-			},
-			cb);
+			});
 		}
 
-		// Otherwise exeute the callback logic immediately
-		else { cb(); }
-
-	}
+		callback(file);
+	});
 
 	// Close all import watch streams when the watchStream ends
 	watchStream.on('end', function() { Object.keys(_streams).forEach(closeStream); });
-
-	// Pipe the watch stream into the imports watcher so whenever any of the
-	// files change, we re-generate our @import watcher so removals/additions
-	// are detected
-	watchStream.pipe(through.obj(importPipe));
 
 	return watchStream;
 };
