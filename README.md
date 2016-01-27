@@ -7,6 +7,18 @@
 $ npm install --save-dev gulp-watch-less2
 ```
 
+## Important Note
+
+**Add filter when `gulp.src` to watch less files**. E.g. `main-*.less` will ignore other less files (actually are just imports) excerpt filename start with `main-`.
+
+The following changes will trigger task to recompile the `main-*.less` file.
+
+  - Add new @import statement(s) to `main-*.less` file
+  - Change less code in imported file of `main-*.less` file
+  - Reorder the @import list in the `main-*.less` file
+  - Delete @import statement(s) in the `main-*.less` file
+  - Change less code in the `main-*.less` file
+
 
 ## Usage
 
@@ -15,9 +27,11 @@ var gulp = require('gulp');
 var watchLess = require('gulp-watch-less2');
 var less = require('gulp-less');
 
+var lessGlobs = 'less/main-*.less';
+
 gulp.task('default', function () {
-  return gulp.src('less/*.less')
-    .pipe(watchLess('less/*.less'))
+  return gulp.src(lessGlobs)
+    .pipe(watchLess(lessGlobs, {verbose: true}))
     .pipe(less())
     .pipe(gulp.dest('dist'));
 });
@@ -39,7 +53,7 @@ Returns pass-through stream, that will emit vinyl files (with additional `event`
 
 See documentation on [gulp-watch][watch-url] task
 
-#### options
+#### Options
 
 See documentation on [gulp-watch][watch-url] task
 

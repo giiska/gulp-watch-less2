@@ -94,11 +94,12 @@ module.exports = function (glob, options, callback) {
 
 	// Merge defaults
 	options = mergeDefaults(options, {
-		name: 'LESS', // Use LESS name by default
-		less: {} // No LESS options by default
+		name: PLUGIN_NAME,
+		less: {}
 	});
 
 	// Generate a basic `gulp-watch` stream
+	// Listen to `add, change, unlink` events
 	var watchStream = watch(glob, options, callback)
 
 	function importPipe(file, enc, cb) {
@@ -108,13 +109,23 @@ module.exports = function (glob, options, callback) {
 		this.push(file);
 
 		// Make sure not watch again when `watchStream.push(f)`
-		if(file.event !== changeEvent) {
-			watchLessImports(file, options, function(importFile) {
+		if(file.event === changeEvent) {
+			cb();
+		}
+		else {
+			watchLessImports(file, options, function(err, importFile) {
+      	// TODO: Error not act as expect
+				// if(err) {
+					// watchStream.emit('error', err);
+				// }
 				// Re push changed less
 				vinyl.read(filePath, options, function(err, f) {
 	        if (err) {
-						return watchStream.emit('error', err);
+	        	// TODO: Error not act as expect
+	        	watchStream.emit('error', err);
+						return 
 	        }
+	        // Same wrap with `gulp-watch` callback above excerpt different event name
 	        f.event = changeEvent;
 					watchStream.push(f);
 					callback(f);
@@ -123,8 +134,6 @@ module.exports = function (glob, options, callback) {
 			cb);
 		}
 
-		// Otherwise exeute the callback logic immediately
-		else { cb(); }
 
 	}
 

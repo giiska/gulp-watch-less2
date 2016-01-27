@@ -1,0 +1,11 @@
+/node_modules
+/history.md
+/*.log
+/*.sublime-project
+/*.sublime-workspace
+/test/gulp-assets-version-replace-version.json
+/test/dist
+
+
+*.sublime-project
+*.sublime-workspace

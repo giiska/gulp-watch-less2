@@ -5,13 +5,16 @@ var gulp = require('gulp'),
   less = require('gulp-less'),
   watchLess = require("../../index");
 
+var lessGlobs = ['less/style-*', 'less/**/style-*'];
+// var lessGlobs = ['less/**/*', '!less/**/0*', '!less/**/1*', '!less/**/2*'];
+
 gulp.task('del', function () {
   return del('css_build/*');
 })
 gulp.task('default', ['del'], function () {
   // only compile less start with `style-`
-  return gulp.src(['less/style-*'])
-    .pipe(watchLess('less/style-*'))
+  return gulp.src(lessGlobs)
+    .pipe(watchLess(lessGlobs, {verbose: true}))
     .pipe(less())
     .on('error', function (error) {
       console.log(error.message);
