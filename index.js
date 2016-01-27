@@ -62,16 +62,13 @@ function watchLessImports(file, options, cb, pipeCb) {
 		if(watchStream) {
 			oldImports = watchStream._imports;
 
-			// Check to ensure the @import arrays are identical.
+			// If @import not changed, just return
 			if(oldImports.length && oldImports.join() === imports.join()) {
-				pipeCb(); return; // Don't do anything further!
+				pipeCb(); return;
 			}
 
 			// Clean up previous watch stream
-			watchStream.end();
-			watchStream.unpipe();
-			watchStream.close();
-			delete _streams[filePath];
+			cleanupFileWatchStream(filePath) 
 		}
 
 		// If we found some imports...
@@ -87,6 +84,19 @@ function watchLessImports(file, options, cb, pipeCb) {
 	});
 }
 
+
+function cleanupFileWatchStream(filePath) {
+	var fileWatchStream = _streams[filePath];
+  
+  if (fileWatchStream) {
+    fileWatchStream.end();
+    fileWatchStream.unpipe();
+    fileWatchStream.close();
+    
+    delete _streams[filePath];
+  }
+}
+
 module.exports = function (glob, options, callback) {
 	// No-op callback if not given
 	if(!options) { options = {}; }
@@ -94,8 +104,7 @@ module.exports = function (glob, options, callback) {
 
 	// Merge defaults
 	options = mergeDefaults(options, {
-		name: PLUGIN_NAME,
-		less: {}
+		name: PLUGIN_NAME
 	});
 
 	// Generate a basic `gulp-watch` stream
@@ -106,11 +115,15 @@ module.exports = function (glob, options, callback) {
 		var filePath = file.path;
 
 		// Passthrough the file
-		this.push(file);
+		// this.push(file);
 
 		// Make sure not watch again when `watchStream.push(f)`
 		if(file.event === changeEvent) {
 			cb();
+		}
+		else if(file.event === 'unlink') {
+	    cleanupFileWatchStream(filePath);
+	    cb();
 		}
 		else {
 			watchLessImports(file, options, function(err, importFile) {
@@ -125,7 +138,7 @@ module.exports = function (glob, options, callback) {
 	        	watchStream.emit('error', err);
 						return 
 	        }
-	        // Same wrap with `gulp-watch` callback above excerpt different event name
+	        // Same value and callback with `watch()` above excerpt different event name
 	        f.event = changeEvent;
 					watchStream.push(f);
 					callback(f);

@@ -7,15 +7,17 @@ var gulp = require('gulp'),
   autoprefixer = require('autoprefixer'),
   cssnano = require('gulp-cssnano'),
   watchLess = require("../../index");
+  var plumber = require('gulp-plumber');
 
 function clean() {
   return del('dist/*');
 }
 
 function lessTask() {
-  // only compile less start with `style-`
-  return gulp.src(['src/less/style-*'])
-    .pipe(watchLess('src/less/style-*'))
+  // only compile less which filename start with `style-`
+  return gulp.src(['src/less/style-*.less'])
+    .pipe(plumber())
+    .pipe(watchLess('src/less/style-*.less', {verbose: true}))
     .pipe(less())
     .pipe(postcss([autoprefixer({browsers: ['last 5 versions']})]))
     .pipe(cssnano())
