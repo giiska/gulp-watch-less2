@@ -114,9 +114,6 @@ module.exports = function (glob, options, callback) {
 	function importPipe(file, enc, cb) {
 		var filePath = file.path;
 
-		// Passthrough the file
-		// this.push(file);
-
 		// Make sure not watch again when `watchStream.push(f)`
 		if(file.event === changeEvent) {
 			cb();
