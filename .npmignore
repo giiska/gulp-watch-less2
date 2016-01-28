@@ -2,5 +2,14 @@
 /history.md
 /*.log
 
+.editorconfig
+test
+.gitattributes
+.jshintrc
+.travis.yml
+.npmignore
+
+examples/**/dist/
+
 *.sublime-project
 *.sublime-workspace
