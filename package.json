@@ -23,10 +23,15 @@
     "gulp-less"
   ],
   "dependencies": {
+    "chokidar": "^1.4.2",
+    "glob": "^6.0.4",
+    "glob2base": "0.0.12",
     "gulp-util": "^3.0.7",
     "gulp-watch": "^4.3.5",
     "less": "^2.5.3",
     "lodash.defaults": "^4.0.0",
+    "path-is-absolute": "^1.0.0",
+    "readable-stream": "^2.0.5",
     "through2": "^2.0.0",
     "vinyl-file": "^2.0.0"
   },

@@ -3,10 +3,16 @@
 var PLUGIN_NAME = 'gulp-watch-less2';
 
 var gulp = require('gulp'),
+    path = require('path'),
 	gutil = require('gulp-util'),
+  Duplex = require('readable-stream').Duplex,
+    pathIsAbsolute = require('path-is-absolute'),
 	vinyl = require('vinyl-file'),
 	watch = require('gulp-watch'),
+    glob2base = require('glob2base'),
 	mergeDefaults = require('lodash.defaults'),
+	chokidar = require('chokidar'),
+	Glob = require('glob').Glob,
 	through = require('through2'),
 	less = require('less');
 
@@ -33,69 +39,20 @@ function getLessFileImports(file, options, cb) {
 		}
 
 		// Generate imports list from the files hash (sorted)
-		var imports = Object.keys(imports.files).sort();
+    var length = Object.keys(imports.files).length;
+    var imports = Object.keys(imports.files).sort();
+    imports.length = length;
 
 		cb(err, imports);
 	});
 };
 
-// Tracks watch streams e.g. `{filepath}: stream`
-var _streams = Object.create(null);
+var _importIndex = Object.create(null);
+var _lessIndex = Object.create(null);
 
 // Name of the event fired when @imports cause file to change
 // (Overwrites the current file.event set by gulp-watch/gaze)
-var changeEvent = 'changed:by:import';
-
-// Import generator
-function watchLessImports(file, options, cb, pipeCb) {
-	var filePath = file.path;
-
-	// Generate an @import list via LESS...
-	getLessFileImports(file, options.less, function(err, imports) {
-		var oldImports;
-
-		// Emit the error if one was returned
-		if (err) { cb(new gutil.PluginError(PLUGIN_NAME, err)); }
-
-		// If a previous watch stream is active...
-		var watchStream = _streams[filePath];
-		if(watchStream) {
-			oldImports = watchStream._imports;
-
-			// If @import not changed, just return
-			if(oldImports.length && oldImports.join() === imports.join()) {
-				pipeCb(); return;
-			}
-
-			// Clean up previous watch stream
-			cleanupFileWatchStream(filePath) 
-		}
-
-		// If we found some imports...
-		if(imports.length) {
-			// Generate new watch stream
-			watchStream = _streams[filePath] = watch(imports, options, cb);
-
-			// Expose @import list on the stream
-			watchStream._imports = imports;
-		}
-
-		pipeCb();
-	});
-}
-
-
-function cleanupFileWatchStream(filePath) {
-	var fileWatchStream = _streams[filePath];
-  
-  if (fileWatchStream) {
-    fileWatchStream.end();
-    fileWatchStream.unpipe();
-    fileWatchStream.close();
-    
-    delete _streams[filePath];
-  }
-}
+var changedByImptEvent = 'changed:by:import';
 
 module.exports = function (glob, options, callback) {
 	// No-op callback if not given
@@ -104,56 +61,211 @@ module.exports = function (glob, options, callback) {
 
 	// Merge defaults
 	options = mergeDefaults(options, {
-		name: PLUGIN_NAME
+		// ignoreInitial: false,
+		name: PLUGIN_NAME,
+		less: {},
+		ignoreInitial: true
 	});
+	options.events = ['add', 'change', 'unlink'];
+
+	// used for push file base
+  if (!options.base) {
+      options.base = glob2base(new Glob(glob));
+  }
 
 	// Generate a basic `gulp-watch` stream
 	// Listen to `add, change, unlink` events
-	var watchStream = watch(glob, options, callback)
+	// var watchStream = watch(glob, options, callback)
+	var watchStream = new Duplex({objectMode: true, allowHalfOpen: true});
 
-	function importPipe(file, enc, cb) {
-		var filePath = file.path;
+  watchStream._write = function _write(file, enc, done) {
+      callback(file);
+			// watchLessImports(file, options, importCallback);
+      // console.log('_write', file.event)
+      // event is undefined for ignored initial
+      if(!file.event)
+        initWatchImpt(file);
 
-		// Make sure not watch again when `watchStream.push(f)`
-		if(file.event === changeEvent) {
-			cb();
-		}
-		else if(file.event === 'unlink') {
-	    cleanupFileWatchStream(filePath);
-	    cb();
-		}
-		else {
-			watchLessImports(file, options, function(err, importFile) {
-      	// TODO: Error not act as expect
-				// if(err) {
-					// watchStream.emit('error', err);
-				// }
-				// Re push changed less
-				vinyl.read(filePath, options, function(err, f) {
-	        if (err) {
-	        	// TODO: Error not act as expect
-	        	watchStream.emit('error', err);
-						return 
-	        }
-	        // Same value and callback with `watch()` above excerpt different event name
-	        f.event = changeEvent;
-					watchStream.push(f);
-					callback(f);
-				});
-			},
-			cb);
-		}
+      watchStream.push(file);
+      done();
+  }
+  watchStream._read = function _read(n) {}
+
+  function removeImptIndexes(imptPath, filePath) {
+    var lessList = _importIndex[imptPath];
+    var pos = lessList.indexOf(filePath);
+    console.log(imptPath, filePath, pos)
+    if(pos > -1) {
+      lessList.splice(pos, 1);
+    }
+    // unwatch impt when no less use it
+    if(!lessList.length) {
+      watcher.unwatch(imptPath)
+      gutil.log('unwatched ', gutil.colors.magenta(imptPath))
+    }
+  }
+
+  function removeIndexes(filePath) {
+    if(typeof _lessIndex[filePath] !== 'undefined') {
+      delete _lessIndex[filePath];
+
+      // Delete less index from imports list
+      Object.keys(_importIndex).forEach(function(imptPath) {
+        removeImptIndexes(imptPath, filePath)
+      })
+      // console.log(_lessIndex)
+      // console.log(_importIndex)
+    }
+  }
+
+  function detectImptChange(file) {
+    var filePath = file.path;
+    getLessFileImports(file, function(err, thisImports) {
+      var previousImpts = _lessIndex[filePath] || [];
+      if(!thisImports)
+        thisImports = [];
+  
+      // check identical
+      if(previousImpts.join() !== thisImports.join()) {
+        // unwatch removed
+        previousImpts.forEach(function(imptPath) {
+          if(thisImports.indexOf(imptPath) === -1) {
+            console.log('remove old', imptPath)
+            removeImptIndexes(imptPath, filePath)
+          }
+        })
+        thisImports.forEach(function(imptPath) {
+          if(previousImpts.indexOf(imptPath) === -1) {
+            console.log('add new', imptPath)
+            addImptIndexes(imptPath, filePath)
+            watcher.add(imptPath, options);
+          }
+        })
+      }
+
+      _lessIndex[filePath] = thisImports;
+    })
+  }
+
+  function addImptIndexes(impt, filePath) {
+    if(typeof _importIndex[impt] === 'undefined') {
+      _importIndex[impt] = [];
+    }
+
+    var lessList = _importIndex[impt];
+    // no watched yet
+    if(typeof lessList[filePath] === 'undefined') {
+      lessList.push(filePath);
+    }
+  }
+
+  function initWatchImpt(file) {
+    var filePath = file.path;
+    function handler(err, imports) {
+      if(imports && imports.length) {
+        // console.log(Object.keys(imports), filePath)
+        imports.forEach(function(impt) {
+          addImptIndexes(impt, filePath)
+        })
+
+        // not collect those who have no imports
+        _lessIndex[filePath] = imports;
+        // console.log('watching ', imports)
+        watcher.add(imports, options);
+        log('watch', filePath + ' imports');
+        // console.log(_lessIndex)
+        // console.log(_importIndex)
+      }
+    }
+    getLessFileImports(file, handler)
+  }
 
 
+  var changeHandle = function(f) {
+  }
+
+  function pushWatchStreamFile(event, f) {
+    f.event = event
+    watchStream.push(f);
+    // event limit to ['add', 'change', 'changed:by:import']
+    watchStream.emit(event);
+    // console.log(event, filePath)
+    callback(f);
+  }
+
+	function pushFile(event, filePath) {
+    log(event, filePath);
+
+    if(event === 'change' && typeof _importIndex[filePath] !== 'undefined') {
+      var relativeLess = _importIndex[filePath]
+      // recompile associated less
+      if(relativeLess.length) {
+        Object.keys(relativeLess).forEach(function(k) {
+          var lessFile = relativeLess[k];
+          pushFile(changedByImptEvent, lessFile)
+        })
+      }
+      return;
+    }
+
+		vinyl.read(filePath, options).then(function(f) {
+      switch(event) {
+        case 'add':
+          initWatchImpt(f)
+          break;
+        case 'change':
+          detectImptChange(f);
+          break;
+        case changedByImptEvent:
+          event = 'change';
+          break;
+      }
+
+      pushWatchStreamFile(event, f)
+
+    });
 	}
 
-	// Close all import watch streams when the watchStream ends
-	watchStream.on('end', function() { Object.keys(_streams).forEach(closeStream); });
+  function watchHandler(event, filePath) {
+    
+    switch(event) {
+      case 'add':
+      case 'change':
+        pushFile(event, filePath)
+        break;
+      case 'unlink':
+        filePath = pathIsAbsolute(filePath) ? filePath : path.join(options.cwd || process.cwd(), filePath);
+        removeIndexes(filePath);
+        log(event, filePath);
+        watchStream.emit('unlink');
+        break;
+    }
 
-	// Pipe the watch stream into the imports watcher so whenever any of the
-	// files change, we re-generate our @import watcher so removals/additions
-	// are detected
-	watchStream.pipe(through.obj(importPipe));
+  }
+
+  function log(event, filePath) {
+      event = event[event.length - 1] === 'e' ? event + 'd' : event + 'ed';
+
+      var msg = [gutil.colors.magenta(filePath), 'was', event];
+
+      if (options.name) {
+          msg.unshift(gutil.colors.cyan(options.name) + ' saw');
+      }
+
+      gutil.log.apply(gutil, msg);
+  }
+
+  var watcher = chokidar.watch(glob, options)
+  	                    .on('all', watchHandler)
+                        // Note: ready is no use at all cause watch.add imports
+                        // .on('ready', function() {
+                        //   var count = 0;
+                        //   var watchedPaths = watcher.getWatched();
+                        //   Object.keys(watchedPaths).forEach(function(k) {
+                        //     count += watchedPaths[k].length
+                        //   })
+                        //   gutil.log(PLUGIN_NAME, 'is watching ', gutil.colors.magenta(count), 'less files')
+                        // })
 
 	return watchStream;
-};
+}
