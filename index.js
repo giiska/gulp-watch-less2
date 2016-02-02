@@ -32,7 +32,7 @@ module.exports = function (glob, options, callback) {
   // Merge defaults
   options = mergeDefaults(options, {
     // ignoreInitial: false,
-    name: PLUGIN_NAME,
+    name: 'watchLess',
     less: {},
     ignoreInitial: true
   });
@@ -132,7 +132,7 @@ module.exports = function (glob, options, callback) {
     // unwatch impt when no less use it
     if (!lessList.length) {
       watcher.unwatch(imptPath);
-      gutil.log('unwatched ', gutil.colors.magenta(imptPath));
+      _log('unwatched', imptPath);
     }
   }
 
@@ -204,7 +204,7 @@ module.exports = function (glob, options, callback) {
         _lessIndex[filePath] = imports;
         // console.log('watching ', imports)
         watcher.add(imports, options);
-        log('watch', filePath + ' imports');
+        _log('watching', filePath + ' imports');
         // console.log(_lessIndex)
         // console.log(_importIndex)
       }
@@ -213,7 +213,7 @@ module.exports = function (glob, options, callback) {
   }
 
   function pushFile(event, filePath) {
-    // log(event, filePath);
+    // _log(event, filePath);
 
     if (event === 'change' && typeof _importIndex[filePath] !== 'undefined') {
       var relativeLess = _importIndex[filePath];
@@ -222,6 +222,7 @@ module.exports = function (glob, options, callback) {
         Object.keys(relativeLess).forEach(function (k) {
           var lessFile = relativeLess[k];
           pushFile(changedByImptEvent, lessFile);
+          _log(changedByImptEvent, lessFile);
         });
       }
       return;
@@ -230,13 +231,11 @@ module.exports = function (glob, options, callback) {
     function _push(event, f) {
       // event limit to ['add', 'change', 'changed:by:import']
       f.event = event;
-      // f.base = 
       watchStream.emit(event);
       watchStream.push(f);
       callback(f);
     }
 
-    console.log('options.base', options.base)
     vinyl.read(filePath, options).then(function (f) {
       switch (event) {
         case 'add':
@@ -260,12 +259,13 @@ module.exports = function (glob, options, callback) {
     switch (event) {
       case 'add':
       case 'change':
+        _log(event, filePath);
         pushFile(event, filePath);
         break;
       case 'unlink':
         filePath = pathIsAbsolute(filePath) ? filePath : path.join(options.cwd || process.cwd(), filePath);
         removeIndexes(filePath);
-        log(event, filePath);
+        _log(event, filePath);
         watchStream.emit('unlink');
         break;
       default:
@@ -273,17 +273,33 @@ module.exports = function (glob, options, callback) {
     }
   }
 
-  function log(event, filePath) {
-    event = event[event.length - 1] === 'e' ? event + 'd' : event + 'ed';
+  function _colorMagenta(text) {
+    return gutil.colors.magenta(text);
+  }
 
-    var msg = [gutil.colors.magenta(filePath), 'was', event];
+  function _log(event, filePath) {
+    var msg;
+
+    if (!options.verbose)
+      return;
+
+    filePath = filePath.replace(options.cwd || process.cwd() + '/', '');
+    if(event == 'watching')
+      msg = ['is', event, _colorMagenta(filePath)];
+    else if (event == 'unwatched') {
+      msg = [event, _colorMagenta(filePath)];
+    }
+    else {
+      event = event[event.length - 1] === 'e' ? event + 'd' : event + 'ed';
+      msg = ['saw', _colorMagenta(filePath), event];
+    }
 
     if (options.name) {
-      msg.unshift(gutil.colors.cyan(options.name) + ' saw');
+      msg.unshift(gutil.colors.cyan(options.name));
     }
 
     gutil.log.apply(gutil, msg);
   }
 
   return watchStream;
-};
+}
