@@ -1,0 +1,17 @@
+.dsf {
+  color: #dddfff;
+  font-size: 2411px;
+}
+.dsf {
+  font-size: 12px;
+}
+body {
+  font-size: 16px;
+  color: #bbb;
+  background: #fff;
+  bottom: 0px;
+}
+#d1 {
+  text-shadow: 0 0 1px #000;
+  transform: translateY(0) translateX(0);
+}
