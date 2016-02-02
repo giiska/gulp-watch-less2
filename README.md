@@ -1,5 +1,5 @@
 # [gulp](http://gulpjs.com)-watch-less [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][depstat-image]][depstat-url]
-> Gulp plugin for watching .less files and their @imports by [gulp-watch][watch-url], based on [Craga89/gulp-watch-less][url-watch-less] which is not work with gulp 3.9 and gulp4
+> Gulp plugin for watching .less files and their @imports, based on [chokidar][chokidar-url]
 
 ## Install
 
@@ -8,6 +8,21 @@ $ npm i -D gulp-watch-less2
 ```
 
 > __Protip:__ until gulpjs 4.0 is released, you can use [gulp-plumber](https://github.com/floatdrop/gulp-plumber) to avoid watch process be terminated by errors.
+
+## Usage
+
+```js
+var gulp = require('gulp');
+var watchLess = require('gulp-watch-less2');
+var less = require('gulp-less');
+var lessGlobs = 'less/main-*.less';
+gulp.task('default', function () {
+  return gulp.src(lessGlobs)
+    .pipe(watchLess(lessGlobs, {verbose: true}))
+    .pipe(less())
+    .pipe(gulp.dest('dist'));
+});
+```
 
 ## Important Note
 
@@ -22,23 +37,6 @@ The following changes will trigger to recompile the `main-*.less` file.
   - Delete @import statement(s) in the `main-*.less` file
   - Change less code in the `main-*.less` file
 
-## Usage
-
-```js
-var gulp = require('gulp');
-var watchLess = require('gulp-watch-less2');
-var less = require('gulp-less');
-
-var lessGlobs = 'less/main-*.less';
-
-gulp.task('default', function () {
-  return gulp.src(lessGlobs)
-    .pipe(watchLess(lessGlobs, {verbose: true}))
-    .pipe(less())
-    .pipe(gulp.dest('dist'));
-});
-```
-
 
 ## API
 
@@ -52,7 +50,7 @@ Glob can be a [`node-glob`][glob-url] string or array of strings.
 
 #### Options
 
-See documentation on [gulp-watch][watch-url] task
+See documentation on [chokidar][chokidar-url] task
 
 ##### options.less
 
@@ -63,21 +61,20 @@ Default: `{}`
 
 #### Callback `function(events, done)`
 
-See documentation on [gulp-watch][watch-url] task
+See documentation on [chokidar][chokidar-url] task
 
 
 ## License
 
-MIT &copy; [John Xiao][profile-url2]  
-MIT &copy; [Craig Michael Thompson][profile-url]
+MIT &copy; [John Xiao][profile-url]  
 
 
-[profile-url]: https://github.com/Craga89
-[profile-url2]: https://github.com/bammoo
+[profile-url]: https://github.com/bammoo
 
 [glob-url]: https://github.com/isaacs/node-glob
 [less-url]: https://github.com/less/less.js
 [watch-url]: https://github.com/floatdrop/gulp-watch
+[chokidar-url]: https://github.com/paulmillr/chokidar
 [url-watch-less]: https://github.com/Craga89/gulp-watch-less
 [plumber-url]: https://github.com/floatdrop/gulp-plumber
 
