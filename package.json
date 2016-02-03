@@ -1,6 +1,6 @@
 {
   "name": "gulp-watch-less2",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Gulp plugin for watching .less files and their @imports",
   "license": "MIT",
   "repository": "bammoo/gulp-watch-less2",
