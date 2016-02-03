@@ -4,7 +4,6 @@ var gutil = require('gulp-util');
 var pj = require('path').join;
 var touch = require('./touch.js');
 var rimraf = require('rimraf');
-var through2 = require('through2');
 var should = require('should');
 
 function createVinyl(lessFileName, contents) {
