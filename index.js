@@ -53,7 +53,7 @@ module.exports = function (glob, opts, callback) {
     callback(file);
     // event is undefined when ignored initial
     if (!file.event) {
-      parseImports(file);
+      addHandler(file);
     }
 
     watchStream.push(file);
@@ -82,7 +82,7 @@ module.exports = function (glob, opts, callback) {
     });
   watchStream.add = function add(newGlobs) {
     watcher.add(newGlobs, opts);
-    // TODO: parseImports for newGlobs
+    // TODO: addHandler for newGlobs
   };
 	watchStream.close = function (cb) {
 		watcher.close();
@@ -90,7 +90,21 @@ module.exports = function (glob, opts, callback) {
     cb && cb();
 	}
 
-  function parseImports(file) {
+  function addImptIndexes(impt, filePath, watch) {
+    if (typeof _triggerIndex[impt] === 'undefined') {
+      _triggerIndex[impt] = [];
+    }
+
+    var parentList = _triggerIndex[impt];
+    // no watched yet
+    if (typeof parentList[filePath] === 'undefined') {
+      parentList.push(filePath);
+      if (watch)
+        watcher.add(imptPath, opts);
+    }
+  }
+
+  function addHandler(file) {
     var filePath = file.path;
     function handler(imports) {
       // not collect those who have no imports
@@ -120,7 +134,7 @@ module.exports = function (glob, opts, callback) {
     _log(event, filePath);
     if (event == 'add') {
       vinyl.read(filePath, opts).then(function (f) {
-        parseImports(f);
+        addHandler(f);
         _streamPush(event, f);
       });
     }
@@ -128,21 +142,21 @@ module.exports = function (glob, opts, callback) {
       changeHandler(event, filePath);
     }
     else if(event == 'unlink') {
-        filePath = pathIsAbsolute(filePath) ? filePath : path.join(opts.cwd || process.cwd(), filePath);
-        removeTriggerIndexes(filePath);
-        watchStream.emit('unlink');
+      filePath = pathIsAbsolute(filePath) ? filePath : path.join(opts.cwd || process.cwd(), filePath);
+      removeTriggerIndexes(filePath);
+      watchStream.emit('unlink');
     }
   }
 
   function changeHandler(event, filePath) {
-    if (event === 'change' && typeof _triggerIndex[filePath] !== 'undefined') {
-      var _thisTriggerList = _triggerIndex[filePath];
+    if (typeof _triggerIndex[filePath] !== 'undefined') {
+      var parentList = _triggerIndex[filePath];
       // recompile associated less
-      if (_thisTriggerList.length) {
-        Object.keys(_thisTriggerList).forEach(function (k) {
-          var lessFile = _thisTriggerList[k];
-          changeHandler(changedByImptEvent, lessFile);
-          _log(changedByImptEvent, lessFile);
+      if (parentList.length) {
+        Object.keys(parentList).forEach(function (k) {
+          var parentFilePath = parentList[k];
+          changeHandler(changedByImptEvent, parentFilePath);
+          _log(changedByImptEvent, parentFilePath);
         });
       }
       return;
@@ -158,21 +172,6 @@ module.exports = function (glob, opts, callback) {
       _streamPush(event, f);
     });
   }
-
-  function addImptIndexes(impt, filePath, watch) {
-    if (typeof _triggerIndex[impt] === 'undefined') {
-      _triggerIndex[impt] = [];
-    }
-
-    var lessList = _triggerIndex[impt];
-    // no watched yet
-    if (typeof lessList[filePath] === 'undefined') {
-      lessList.push(filePath);
-      if (watch)
-        watcher.add(imptPath, opts);
-    }
-  }
-
 
   function removeImptIndexes(imptPath, filePath) {
     var lessList = _triggerIndex[imptPath];
@@ -217,6 +216,7 @@ module.exports = function (glob, opts, callback) {
   }
 
   // Generates list of @import paths for a given Vinyl file
+  // Include the multi level @import paths
   function getLessFileImports(file, cb) {
     // Parse the filepath, using file path as `filename` option
     less.parse(file.contents.toString('utf8'), mergeDefaults({
@@ -263,7 +263,7 @@ module.exports = function (glob, opts, callback) {
         thisImports.forEach(function (imptPath) {
           if (previousImpts.indexOf(imptPath) === -1) {
             // console.log('add new', imptPath)
-            addImptIndexes(imptPath, filePath);
+            addImptIndexes(imptPath, filePath, true);
           }
         });
       }
