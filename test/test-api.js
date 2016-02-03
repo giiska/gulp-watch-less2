@@ -1,45 +1,84 @@
-
-var watch = require('..');
-var join = require('path').join;
+var fs = require('fs');
+var watchLess = require('..');
+var gutil = require('gulp-util');
+var pj = require('path').join;
 var touch = require('./touch.js');
 var rimraf = require('rimraf');
-require('should');
+var through2 = require('through2');
+var should = require('should');
+
+function createVinyl(lessFileName, contents) {
+  var base = pj(__dirname, 'fixtures');
+  var filePath = pj(base, lessFileName);
+
+  return new gutil.File({
+    cwd: __dirname,
+    base: base,
+    path: filePath,
+    contents: contents || fs.readFileSync(filePath)
+  });
+}
 
 function fixtures(glob) {
-  return join(__dirname, 'fixtures', glob);
+  return pj(__dirname, 'fixtures', glob);
 }
 
 describe('api', function () {
-  var w;
+  var watchStream;
 
-  describe('add', function () {
-    afterEach(function (done) {
-      w.on('end', function () {
-        rimraf.sync(fixtures('new.less'));
-        done();
-      });
-      w.close();
+  after(function (done) {
+    watchStream.on('end', function () {
+      rimraf.sync(fixtures('imports'));
+      rimraf.sync(fixtures('new*'));
+      done();
     });
+    watchStream.close();
+  })
 
-    it('should emit added file', function (done) {
-      w = watch(fixtures('*/*.less'));
-      w.add(fixtures('*.less'));
-      w.on('data', function (file) {
-        file.relative.should.eql('new.less');
-        file.event.should.eql('add');
-        done();
-      }).on('ready', touch(fixtures('new.less')));
-    });
+  it('should emit added file', function (done) {
+    watchStream = watchLess(fixtures('*/*.less'), {verbose: false});
+    watchStream.add(fixtures('*.less'));
+    watchStream.on('data', function (file) {
+      file.relative.should.eql('new.less');
+      file.event.should.eql('add');
+      watchStream.close(done);
+    })
+    .on('ready', touch(fixtures('new.less')));
+  });
 
-    it('should emit change event on file change', function (done) {
-      w = watch(fixtures('*/*.less'));
-      w.add(fixtures('*.less'));
-      w.on('ready', touch(fixtures('index.less')));
-      w.on('data', function (file) {
-        file.relative.should.eql('index.less');
-        file.event.should.eql('change');
-        done();
-      });
+  it('should emit change event on file change', function (done) {
+    fs.mkdirSync(fixtures('imports'));
+    fs.writeFileSync(fixtures('imports/1.less'), '.import {color: #fff;}');
+    watchStream = watchLess(fixtures('*.less'), {verbose: false});
+    watchStream.on('ready', touch(fixtures('new.less'), '@import "imports/1";.change{display:none;}'));
+    watchStream.on('data', function (file) {
+      file.relative.should.eql('new.less');
+      file.event.should.eql('change');
+      watchStream.close(done);
     });
   });
+
+  it('should emit change event on import change', function (done) {
+    var watchStream2 = watchLess(fixtures('new.less'), {verbose: false});
+    var file = createVinyl('new.less');
+    watchStream2.write(file);
+    watchStream2
+      .once('data', function (file) {
+        file.relative.should.eql('new.less');
+        should.not.exist(file.event);
+      })
+      .once('importsReady', function (filePath) {
+        // on new.less's imports are watched
+        if(filePath == fixtures('new.less')) {
+          this.once('data', function (file) {
+            file.relative.should.eql('new.less');
+            file.event.should.eql('change');
+            done();
+          })
+          fs.writeFileSync(fixtures('imports/1.less'), '.import {color: #000;}');
+        }
+      })
+  });
+
+
 });
