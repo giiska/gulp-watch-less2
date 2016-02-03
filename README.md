@@ -1,4 +1,4 @@
-# [gulp](http://gulpjs.com)-watch-less [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][depstat-image]][depstat-url]
+# [gulp](http://gulpjs.com)-watch-less2 [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][depstat-image]][depstat-url]
 > Gulp plugin for watching .less files and their @imports, based on [chokidar][chokidar-url]
 
 ## Install
@@ -26,16 +26,13 @@ gulp.task('default', function () {
 
 ## Important Note
 
-  - **Use specific glob to filter import files**. E.g. `main-*.less` will ignore import files which filename is not start with `main-`.
-  - Currently this plugin **only support one level imports**, that is to say you can not add imports statements in a import file.
+  - **Strongly recommand using specific glob to filter import files**. E.g. `main-*.less` to ignore import files which filename is not start with `main-`.
 
-The following changes will trigger to recompile the `main-*.less` file.
+The following actions will trigger recompile `main-*.less`.
 
-  - Add new @import statement(s) to `main-*.less` file
-  - Change less code in imported file of `main-*.less` file
-  - Reorder the @import list in the `main-*.less` file
-  - Delete @import statement(s) in the `main-*.less` file
-  - Change less code in the `main-*.less` file
+  - Add/Reorder/Remove @import statement(s) in `main-*.less`
+  - Change code of file imported in `main-*.less`
+  - Change code of `main-*.less`
 
 
 ## API
