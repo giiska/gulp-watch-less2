@@ -27,7 +27,7 @@ describe('api', function () {
   var watchStream;
 
   after(function (done) {
-    watchStream.on('end', function () {
+    watchStream.once('end', function () {
       rimraf.sync(fixtures('imports'));
       rimraf.sync(fixtures('new*'));
       done();
@@ -38,20 +38,20 @@ describe('api', function () {
   it('should emit added file', function (done) {
     watchStream = watchLess(fixtures('*/*.less'), {verbose: false});
     watchStream.add(fixtures('*.less'));
-    watchStream.on('data', function (file) {
+    watchStream.once('data', function (file) {
       file.relative.should.eql('new.less');
       file.event.should.eql('add');
       watchStream.close(done);
     })
-    .on('ready', touch(fixtures('new.less')));
+    .once('ready', touch(fixtures('new.less')));
   });
 
   it('should emit change event on file change', function (done) {
     fs.mkdirSync(fixtures('imports'));
     fs.writeFileSync(fixtures('imports/1.less'), '.import {color: #fff;}');
     watchStream = watchLess(fixtures('*.less'), {verbose: false});
-    watchStream.on('ready', touch(fixtures('new.less'), '@import "imports/1";.change{display:none;}'));
-    watchStream.on('data', function (file) {
+    watchStream.once('ready', touch(fixtures('new.less'), '@import "imports/1";.change{display:none;}'));
+    watchStream.once('data', function (file) {
       file.relative.should.eql('new.less');
       file.event.should.eql('change');
       watchStream.close(done);
@@ -59,10 +59,10 @@ describe('api', function () {
   });
 
   it('should emit change event on import change', function (done) {
-    var watchStream2 = watchLess(fixtures('new.less'), {verbose: false});
+    watchStream = watchLess(fixtures('new.less'), {verbose: false});
     var file = createVinyl('new.less');
-    watchStream2.write(file);
-    watchStream2
+    watchStream.write(file);
+    watchStream
       .once('data', function (file) {
         file.relative.should.eql('new.less');
         should.not.exist(file.event);
