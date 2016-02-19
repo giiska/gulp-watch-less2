@@ -36,7 +36,8 @@
     "lodash.defaults": "^4.0.0",
     "path-is-absolute": "^1.0.0",
     "readable-stream": "^2.0.5",
-    "vinyl-file": "^2.0.0"
+    "vinyl-file": "^2.0.0",
+    "get-less-imports": "^0.0.1"
   },
   "devDependencies": {
     "autoprefixer": "^6.3.1",

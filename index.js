@@ -10,6 +10,7 @@ var mergeDefaults = require('lodash.defaults');
 var chokidar = require('chokidar');
 var Glob = require('glob').Glob;
 var less = require('less');
+var getLessImports = require('get-less-imports');
 
 var PLUGIN_NAME = 'gulp-watch-less2';
 // Name of the event fired when @imports cause file to change
@@ -43,6 +44,8 @@ module.exports = function (glob, opts, callback) {
   var _triggerIndex = Object.create(null);
   // Index imports by less files
   var _importsIndex = Object.create(null);
+
+  var _subImportsIndex = Object.create(null);
 
   // Generate a basic `gulp-watch` stream
   // Listen to `add, change, unlink` events
@@ -81,45 +84,52 @@ module.exports = function (glob, opts, callback) {
       watcher.on(ev, watchStream.emit.bind(watchStream, ev));
     });
   watchStream.add = function add(newGlobs) {
-    watcher.add(newGlobs, opts);
+    watcher.add(newGlobs);
     // TODO: addHandler for newGlobs
-  };
+  }
 	watchStream.close = function (cb) {
 		watcher.close();
 		this.emit('end');
     cb && cb();
 	}
 
-  function addTriggerMap(impt, filePath, watch) {
+  function addTriggerMap(impt, filePath, needWatch) {
     if (typeof _triggerIndex[impt] === 'undefined') {
       _triggerIndex[impt] = [];
     }
 
     var parentList = _triggerIndex[impt];
     // no watched yet
-    if (typeof parentList[filePath] === 'undefined') {
+    if ( parentList.indexOf(filePath) === -1) {
       parentList.push(filePath);
-      if (watch)
-        watcher.add(imptPath, opts);
+      if (needWatch) {
+        watcher.add(impt);
+      }
     }
   }
 
   function addHandler(file) {
     var filePath = file.path;
-    function handler(imports) {
-      // not collect those who have no imports
-      if (imports && imports.length) {
-        imports.forEach(function (impt) {
-          addTriggerMap(impt, filePath);
-        });
 
-        _importsIndex[filePath] = imports;
-        watcher.add(imports, opts);
-        watchStream.emit('importsReady', filePath)
-        _log('watching', filePath + ' imports');
-      }
+    var imports = getLessImports(filePath);
+    var importsSimple = imports.simple;
+
+    Object.keys(imports.full).forEach(function (k) {
+      if(k != filePath)
+        _subImportsIndex[k] = imports.full[k]
+    })
+
+    // not collect those who have no imports
+    if (importsSimple && importsSimple.length) {
+      importsSimple.forEach(function (impt) {
+        addTriggerMap(impt, filePath);
+      });
+
+      _importsIndex[filePath] = importsSimple;
+      watcher.add(importsSimple);
+      watchStream.emit('importsReady', filePath);
+      _log('watching', filePath + ' imports');
     }
-    getLessFileImports(file, handler);
   }
 
   function _streamPush(event, f) {
@@ -143,7 +153,7 @@ module.exports = function (glob, opts, callback) {
     }
     else if(event == 'unlink') {
       filePath = pathIsAbsolute(filePath) ? filePath : path.join(opts.cwd || process.cwd(), filePath);
-      removeTriggerIndexes(filePath);
+      removeAllTriggerIndex(filePath);
       watchStream.emit('unlink');
     }
   }
@@ -159,6 +169,24 @@ module.exports = function (glob, opts, callback) {
           _log(changedByImptEvent, parentFilePath);
         });
       }
+
+      // If import file has sub imports
+      if (typeof _subImportsIndex[filePath] !== 'undefined') {
+        var previousImpts = _subImportsIndex[filePath];
+
+        vinyl.read(filePath, opts).then(function (f) {
+          var thisImports = getLessImports(filePath).simple;
+          // Add/Rename/Order imports statement in imports file
+          if (parentList.length && previousImpts.join() !== thisImports.join()) {
+            // Recursively trigger top level less detectImptChange
+            Object.keys(parentList).forEach(function (k) {
+              var parentFilePath = parentList[k];
+              detectImptChange(parentFilePath);
+            });
+          }
+        })
+      }
+
       return;
     }
 
@@ -167,13 +195,13 @@ module.exports = function (glob, opts, callback) {
         event = 'change'
       }
       else {
-        detectImptChange(f);
+        detectImptChange(filePath);
       }
       _streamPush(event, f);
     });
   }
 
-  function removeImptIndexes(imptPath, filePath) {
+  function deleteTriggerIndex(imptPath, filePath) {
     var lessList = _triggerIndex[imptPath];
     var pos = lessList.indexOf(filePath);
     if (pos > -1) {
@@ -214,68 +242,43 @@ module.exports = function (glob, opts, callback) {
     gutil.log.apply(gutil, msg);
   }
 
-  // Generates list of @import paths for a given Vinyl file
-  // Include the multi level @import paths
-  function getLessFileImports(file, cb) {
-    // Parse the filepath, using file path as `filename` option
-    less.parse(file.contents.toString('utf8'), mergeDefaults({
-      filename: file.path
-    }, opts || {}), function (err, root, imports) {
-      // Add a better error message / properties
-      if (err) {
-        err.lineNumber = err.line;
-        err.fileName = err.filename;
-        err.message = err.message + ' in file ' + err.fileName + ' line no. ' + err.lineNumber;
+  // Detect imports change from top level less file
+  function detectImptChange(filePath) {
+    var imports = getLessImports(filePath);
+    Object.keys(imports.full).forEach(function (k) {
+      if(k != filePath)
+        _subImportsIndex[k] = imports.full[k]
+    })
+    var thisImports = imports.simple;
+    
+    var previousImpts = _importsIndex[filePath] || [];
 
-        // Emit the error if one was returned
-        watchStream.emit('error', new gutil.PluginError(PLUGIN_NAME, err.message));
-      }
-      else {
-        // Generate imports list from the files hash (sorted)
-        var length = Object.keys(imports.files).length;
-        imports = Object.keys(imports.files).sort();
-        imports.length = length;
-        cb(imports);
-      }
-    });
+    // check identical
+    if (previousImpts.join() !== thisImports.join()) {
+      // unwatch removed
+      previousImpts.forEach(function (imptPath) {
+        if (thisImports.indexOf(imptPath) === -1) {
+          deleteTriggerIndex(imptPath, filePath);
+        }
+      });
+      // watch new imports
+      thisImports.forEach(function (imptPath) {
+        if (previousImpts.indexOf(imptPath) === -1) {
+          addTriggerMap(imptPath, filePath, 1);
+        }
+      });
+    }
+
+    _importsIndex[filePath] = thisImports;
   }
 
-
-  function detectImptChange(file) {
-    var filePath = file.path;
-    getLessFileImports(file, function (thisImports) {
-      var previousImpts = _importsIndex[filePath] || [];
-      if (!thisImports) {
-        thisImports = [];
-      }
-
-      // check identical
-      if (previousImpts.join() !== thisImports.join()) {
-        // unwatch removed
-        previousImpts.forEach(function (imptPath) {
-          if (thisImports.indexOf(imptPath) === -1) {
-            removeImptIndexes(imptPath, filePath);
-          }
-        });
-        // watch new imports
-        thisImports.forEach(function (imptPath) {
-          if (previousImpts.indexOf(imptPath) === -1) {
-            addTriggerMap(imptPath, filePath, true);
-          }
-        });
-      }
-
-      _importsIndex[filePath] = thisImports;
-    });
-  }
-
-  function removeTriggerIndexes(filePath) {
+  function removeAllTriggerIndex(filePath) {
     if (typeof _importsIndex[filePath] !== 'undefined') {
       delete _importsIndex[filePath];
 
       // Delete less index from imports list
       Object.keys(_triggerIndex).forEach(function (imptPath) {
-        removeImptIndexes(imptPath, filePath);
+        deleteTriggerIndex(imptPath, filePath);
       });
     }
   }
