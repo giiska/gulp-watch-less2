@@ -42,7 +42,7 @@ module.exports = function (glob, opts, callback) {
   // Index each imports's parents, used to trigger changed:by:import event
   var _triggerIndex = Object.create(null);
   // Index imports by less files
-  var _compileIndex = Object.create(null);
+  var _importsIndex = Object.create(null);
 
   // Generate a basic `gulp-watch` stream
   // Listen to `add, change, unlink` events
@@ -90,7 +90,7 @@ module.exports = function (glob, opts, callback) {
     cb && cb();
 	}
 
-  function addImptIndexes(impt, filePath, watch) {
+  function addTriggerMap(impt, filePath, watch) {
     if (typeof _triggerIndex[impt] === 'undefined') {
       _triggerIndex[impt] = [];
     }
@@ -110,10 +110,10 @@ module.exports = function (glob, opts, callback) {
       // not collect those who have no imports
       if (imports && imports.length) {
         imports.forEach(function (impt) {
-          addImptIndexes(impt, filePath);
+          addTriggerMap(impt, filePath);
         });
 
-        _compileIndex[filePath] = imports;
+        _importsIndex[filePath] = imports;
         watcher.add(imports, opts);
         watchStream.emit('importsReady', filePath)
         _log('watching', filePath + ' imports');
@@ -176,7 +176,6 @@ module.exports = function (glob, opts, callback) {
   function removeImptIndexes(imptPath, filePath) {
     var lessList = _triggerIndex[imptPath];
     var pos = lessList.indexOf(filePath);
-    // console.log(imptPath, filePath, pos)
     if (pos > -1) {
       lessList.splice(pos, 1);
     }
@@ -245,7 +244,7 @@ module.exports = function (glob, opts, callback) {
   function detectImptChange(file) {
     var filePath = file.path;
     getLessFileImports(file, function (thisImports) {
-      var previousImpts = _compileIndex[filePath] || [];
+      var previousImpts = _importsIndex[filePath] || [];
       if (!thisImports) {
         thisImports = [];
       }
@@ -255,33 +254,29 @@ module.exports = function (glob, opts, callback) {
         // unwatch removed
         previousImpts.forEach(function (imptPath) {
           if (thisImports.indexOf(imptPath) === -1) {
-            // console.log('remove old', imptPath)
             removeImptIndexes(imptPath, filePath);
           }
         });
         // watch new imports
         thisImports.forEach(function (imptPath) {
           if (previousImpts.indexOf(imptPath) === -1) {
-            // console.log('add new', imptPath)
-            addImptIndexes(imptPath, filePath, true);
+            addTriggerMap(imptPath, filePath, true);
           }
         });
       }
 
-      _compileIndex[filePath] = thisImports;
+      _importsIndex[filePath] = thisImports;
     });
   }
 
   function removeTriggerIndexes(filePath) {
-    if (typeof _compileIndex[filePath] !== 'undefined') {
-      delete _compileIndex[filePath];
+    if (typeof _importsIndex[filePath] !== 'undefined') {
+      delete _importsIndex[filePath];
 
       // Delete less index from imports list
       Object.keys(_triggerIndex).forEach(function (imptPath) {
         removeImptIndexes(imptPath, filePath);
       });
-      // console.log(_compileIndex)
-      // console.log(_triggerIndex)
     }
   }
 
