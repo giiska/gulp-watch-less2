@@ -28,6 +28,7 @@
   ],
   "dependencies": {
     "chokidar": "^1.4.2",
+    "get-less-imports": "^0.0.1",
     "glob": "^6.0.4",
     "glob2base": "0.0.12",
     "gulp-util": "^3.0.7",
@@ -36,12 +37,12 @@
     "lodash.defaults": "^4.0.0",
     "path-is-absolute": "^1.0.0",
     "readable-stream": "^2.0.5",
-    "vinyl-file": "^2.0.0",
-    "get-less-imports": "^0.0.1"
+    "vinyl-file": "^2.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^6.3.1",
     "del": "^2.2.0",
+    "fs-extra": "^0.26.5",
     "gulp": "^3.9.0",
     "gulp-cssnano": "^2.1.0",
     "gulp-less": "^3.0.5",
@@ -49,7 +50,6 @@
     "gulp-postcss": "^6.0.1",
     "jshint": "^2.9.1",
     "mocha": "^2.4.5",
-    "rimraf": "^2.5.1",
-    "should": "^8.2.1"
+    "should": "^8.2.2"
   }
 }

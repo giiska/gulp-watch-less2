@@ -44,12 +44,8 @@ module.exports = function (glob, opts, callback) {
   var _triggerIndex = Object.create(null);
   // Index imports by less files
   var _importsIndex = Object.create(null);
-
   var _subImportsIndex = Object.create(null);
 
-  // Generate a basic `gulp-watch` stream
-  // Listen to `add, change, unlink` events
-  // var watchStream = watch(glob, opts, callback)
   var watchStream = new Duplex({objectMode: true, allowHalfOpen: true});
 
   watchStream._write = function _write(file, enc, done) {
@@ -135,7 +131,6 @@ module.exports = function (glob, opts, callback) {
   function _streamPush(event, f) {
     // event limit to ['add', 'change', 'changed:by:import']
     f.event = event;
-    watchStream.emit(event);
     watchStream.push(f);
     callback(f);
   }
