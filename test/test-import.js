@@ -14,14 +14,14 @@ describe('api', function () {
       base: pj(__dirname, 'fixtures'),
       verbose: false
     });
-      watchStream.once('importsReady', function (f) {
-        if(f == utils.fixtures('import-tmp/style-new2.less')) {
-          // Consume data event to avoid affectting latter test case
-          watchStream.once('data', function (file) {
-              done()
-          })
-        }
-      })
+    watchStream.once('importsReady', function (f) {
+      if(f == utils.fixtures('import-tmp/style-new2.less')) {
+        // Consume data event to avoid affectting latter test case
+        watchStream.once('data', function (file) {
+            done()
+        })
+      }
+    })
     watchStream.write(utils.createVinyl('import-tmp/style-new2.less'));
   })
 
