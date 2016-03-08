@@ -9,6 +9,13 @@ $ npm i -D gulp-watch-less2
 
 > __Protip:__ until gulpjs 4.0 is released, you can use [gulp-plumber](https://github.com/floatdrop/gulp-plumber) to avoid watch process be terminated by errors.
 
+## Feature Note
+
+The following actions will trigger recompile `main-*.less`.
+
+  - Add/Reorder/Remove @import statement in `main-*.less` files or their import files
+  - Change code of `main-*.less` or their import files
+
 ## Usage
 
 ```js
@@ -23,16 +30,6 @@ gulp.task('default', function () {
     .pipe(gulp.dest('dist'));
 });
 ```
-
-## Important Note
-
-  - **Strongly recommand using specific glob to filter import files**. E.g. `main-*.less` to ignore import files which filename is not start with `main-`.
-
-The following actions will trigger recompile `main-*.less`.
-
-  - Add/Reorder/Remove @import statement(s) in `main-*.less`
-  - Change code of file imported in `main-*.less`
-  - Change code of `main-*.less`
 
 
 ## API
