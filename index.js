@@ -59,8 +59,8 @@ module.exports = function (glob, opts, callback) {
     done();
   };
   watchStream._read = function _read() {};
-  watchStream.on('error', function(msg) {
-    gutil.log(gutil.colors.red(PLUGIN_NAME + ' Error') , msg)
+  watchStream.on('error', function(err) {
+    gutil.log(gutil.colors.red(opts.name + ' Error') , err.message)
   })
 
   var watcher = chokidar.watch(glob, opts)
